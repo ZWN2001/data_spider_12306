@@ -20,7 +20,7 @@ def init():
     # 用户名
     username = '2134356214@qq.com'
     # 密码
-    password = 'ZWN370782'
+    password = '-'
     # 设置等待超时
     wait = WebDriverWait(browser, 20)
 
@@ -54,7 +54,7 @@ def main():
     init()
     # 登录
     login()
-    # # 移动滑块
+    # 移动滑块
     move_to_gap()
     sleep(5)
 
