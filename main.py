@@ -28,7 +28,7 @@ def init():
     # 用户名
     username = '2134356214@qq.com'
     # 密码
-    password = 'ZWN370782'
+    password = '----'
     # 设置等待超时
     wait = WebDriverWait(browser, 20)
 
