@@ -12,6 +12,8 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver import ActionChains
 import aiohttp
 
+global url, browser, username, password, wait, proxy
+
 
 # 初始化
 def init():
@@ -66,8 +68,6 @@ def get_cookie():
     print(cookies)
 
 
-
-
 def get_all_station_name_and_code():
     station_name_source = requests.get(
         ' https://kyfw.12306.cn/otn/resources/js/framework/station_name.js?station_version=1.9235')
@@ -98,10 +98,24 @@ def get_query_url(text, date, from_station, to_station):
 
 
 async def get_info_from_query_url(query_url):
-    cookie = "tk=YdFLdVKmaySrnWBxT8QCfZ6RA5Vf5k-rbcS1S0; JSESSIONID=8082F95D9CBF715F28E0AFC924BB051F; RAIL_EXPIRATION=1657682972442; RAIL_DEVICEID=e8EMu5K2CHTHt8PLHUia5L5Ibu_lWeVTFaIitxQ1UkZ4eDZgX81p0Li5JVD47mYGJVHxU69VVUz1TnLdd2pL3imK2IcLnGDrYpw02-Xjl_jrJaJ6sMqkg4Fp2EaearN9UgJbAWPH2ey1xUlH9qoJCNyafVPSOVIo; guidesStatus=off; highContrastMode=defaltMode; cursorStatus=off; BIGipServerpool_passport=199492106.50215.0000; route=c5c62a339e7744272a54643b3be5bf64; BIGipServerpassport=870842634.50215.0000; current_captcha_type=Z; _jc_save_toStation=%u5317%u4EAC%2CBJP; fo=lychk6583r3ve8grL4FA6lRnmc8pYiQJMzoIogEpjAN+Wvf8KuYinWwvkuxL4RsfXlPqgmgO9tBrFErdJPOC9Cs6fybJyq58xTqFtFPdq4FBlLYXuWlpHqhAb5a8HF14gT9cv9l/VUxwkU8dH/32DQ9ngCzjAo/RBUAbfKByRlUVXbhfH2hZKbtse9c%3D; _jc_save_fromDate=2022-07-14; _jc_save_wfdc_flag=dc; _jc_save_toDate=2022-07-10; _jc_save_fromStation=%u4E0A%u6D77%2CSHH; BIGipServerportal=2949906698.17695.0000; BIGipServerotn=568852746.24610.0000; uKey=8b53fb39e2c3d400819319fc95e08e017b875d866168a46db8e3dc78eb3a32c8"
+    cookie = "tk=YdFLdVKmaySrnWBxT8QCfZ6RA5Vf5k-rbcS1S0; JSESSIONID=8082F95D9CBF715F28E0AFC924BB051F; " \
+             "RAIL_EXPIRATION=1657682972442; " \
+             "RAIL_DEVICEID" \
+             "=e8EMu5K2CHTHt8PLHUia5L5Ibu_lWeVTFaIitxQ1UkZ4eDZgX81p0Li5JVD47mYGJVHxU69VVUz1TnLdd2pL3imK2IcLnGDrYpw02" \
+             "-Xjl_jrJaJ6sMqkg4Fp2EaearN9UgJbAWPH2ey1xUlH9qoJCNyafVPSOVIo; guidesStatus=off; " \
+             "highContrastMode=defaltMode; cursorStatus=off; BIGipServerpool_passport=199492106.50215.0000; " \
+             "route=c5c62a339e7744272a54643b3be5bf64; BIGipServerpassport=870842634.50215.0000; " \
+             "current_captcha_type=Z; _jc_save_toStation=%u5317%u4EAC%2CBJP; " \
+             "fo=lychk6583r3ve8grL4FA6lRnmc8pYiQJMzoIogEpjAN" \
+             "+Wvf8KuYinWwvkuxL4RsfXlPqgmgO9tBrFErdJPOC9Cs6fybJyq58xTqFtFPdq4FBlLYXuWlpHqhAb5a8HF14gT9cv9l/VUxwkU8dH" \
+             "/32DQ9ngCzjAo/RBUAbfKByRlUVXbhfH2hZKbtse9c%3D; _jc_save_fromDate=2022-07-14; _jc_save_wfdc_flag=dc; " \
+             "_jc_save_toDate=2022-07-10; _jc_save_fromStation=%u4E0A%u6D77%2CSHH; " \
+             "BIGipServerportal=2949906698.17695.0000; BIGipServerotn=568852746.24610.0000; " \
+             "uKey=8b53fb39e2c3d400819319fc95e08e017b875d866168a46db8e3dc78eb3a32c8 "
 
     headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/61.0.3163.100 Safari/537.36",
+        "User-Agent": "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) "
+                      "Chrome/61.0.3163.100 Safari/537.36",
         "Cookie": cookie
     }
     async with aiohttp.ClientSession() as session:
