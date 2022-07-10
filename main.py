@@ -1,5 +1,6 @@
 import asyncio
 import re
+from time import sleep
 
 import requests
 
@@ -10,51 +11,61 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.by import By
 from selenium.webdriver import ActionChains
 import aiohttp
-from time import sleep
 
 
-#
-# # 初始化
-# def init():
-#     # TODO：后期换成无头浏览器
-#     option = Options()
-#     option.add_argument('--disable-blink-features=AutomationControlled')
-#     # 定义为全局变量，方便其他模块使用
-#     global url, browser, username, password, wait, proxy
-#     proxy = {'https': '127.0.0.1:7890'}
-#     # 登录界面的url
-#     url = 'https://kyfw.12306.cn/otn/resources/login.html'
-#     # 实例化一个chrome浏览器
-#     browser = webdriver.Chrome(options=option)
-#     # 用户名
-#     username = '2134356214@qq.com'
-#     # 密码
-#     password = '-'
-#     # 设置等待超时
-#     wait = WebDriverWait(browser, 20)
+# 初始化
+def init():
+    # TODO：后期换成无头浏览器
+    option = Options()
+    option.add_argument('--disable-blink-features=AutomationControlled')
+    # 定义为全局变量，方便其他模块使用
+    global url, browser, username, password, wait, proxy
+    proxy = {'https': '127.0.0.1:7890'}
+    # 登录界面的url
+    url = 'https://kyfw.12306.cn/otn/resources/login.html'
+    # 实例化一个chrome浏览器
+    browser = webdriver.Chrome(options=option)
+    # 用户名
+    username = '2134356214@qq.com'
+    # 密码
+    password = 'ZWN370782'
+    # 设置等待超时
+    wait = WebDriverWait(browser, 20)
 
 
-# # 登录
-# def login():
-#     # 打开登录页面
-#     browser.get(url)
-#     # 获取用户名输入框
-#     user = wait.until(EC.presence_of_element_located((By.ID, 'J-userName')))
-#     # 获取密码输入框
-#     passwd = wait.until(EC.presence_of_element_located((By.ID, 'J-password')))
-#     # 输入用户名
-#     user.send_keys(username)
-#     # 输入密码
-#     passwd.send_keys(password)
-#
-#     browser.find_element(By.ID, "J-login").click()
-#
-#
-# # 模拟拖动
-# def move_to_gap():
-#     # 得到滑块标签
-#     slider = wait.until(EC.presence_of_element_located((By.ID, 'nc_1_n1z')))
-#     ActionChains(browser).drag_and_drop_by_offset(slider, 300, 0).perform()
+# 登录
+def login():
+    # 打开登录页面
+    browser.get(url)
+    # 获取用户名输入框
+    user = wait.until(EC.presence_of_element_located((By.ID, 'J-userName')))
+    # 获取密码输入框
+    passwd = wait.until(EC.presence_of_element_located((By.ID, 'J-password')))
+    # 输入用户名
+    user.send_keys(username)
+    # 输入密码
+    passwd.send_keys(password)
+
+    browser.find_element(By.ID, "J-login").click()
+
+
+# 模拟拖动
+def move_to_gap():
+    # 得到滑块标签
+    slider = wait.until(EC.presence_of_element_located((By.ID, 'nc_1_n1z')))
+    ActionChains(browser).drag_and_drop_by_offset(slider, 300, 0).perform()
+
+
+def get_cookie():
+    c = browser.get_cookies()
+    cookies = {}
+    # 获取cookie中的name和value,转化成requests可以使用的形式
+    for cookie in c:
+        cookies[cookie['name']] = cookie['value']
+
+    print(cookies)
+
+
 
 
 def get_all_station_name_and_code():
@@ -93,9 +104,6 @@ async def get_info_from_query_url(query_url):
         "User-Agent": "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/61.0.3163.100 Safari/537.36",
         "Cookie": cookie
     }
-    proxies = {
-        "HTTP": "http://182.34.27.89:9999"
-    }
     async with aiohttp.ClientSession() as session:
         async with session.get(query_url, headers=headers) as resp:
             info = await resp.json()  # 获取所有车次信息
@@ -125,18 +133,19 @@ async def get_info_from_query_url(query_url):
 
 # 主程序
 async def main():
-    # # 初始化
-    # init()
-    # # 登录
-    # login()
-    # sleep(2)
-    # # 移动滑块
-    # move_to_gap()
-    # sleep(2)
-    stationName, stationCode = get_all_station_name_and_code()
-    query_url = get_query_url(stationName, '2022-07-14', '上海', '北京')
-    tasks = [asyncio.create_task(get_info_from_query_url(query_url))]
-    await asyncio.wait(tasks)
+    # 初始化
+    init()
+    # 登录
+    login()
+    sleep(2)
+    # 移动滑块
+    move_to_gap()
+    sleep(2)
+
+    # stationName, stationCode = get_all_station_name_and_code()
+    # query_url = get_query_url(stationName, '2022-07-14', '上海', '北京')
+    # tasks = [asyncio.create_task(get_info_from_query_url(query_url))]
+    # await asyncio.wait(tasks)
     # get_info_from_query_url(query_url)
 
 
