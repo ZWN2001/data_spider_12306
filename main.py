@@ -71,10 +71,10 @@ async def get_info_from_query_url(query_url, stationName, date, from_station, to
                 data_list = one_train.split('|')
                 train_number = data_list[3]  # 车次
                 from_station_code = data_list[6]  # 出发站代号
-                from_station_name = '上海'  # 出发站名称
+                from_station_name = from_station  # 出发站名称
                 to_station_code = data_list[7]  # 到达站代号
-                to_station_name = '北京'  # 到达站名称
-                go_time = data_list[8]  # 出发时间
+                to_station_name = to_station  # 到达站名称
+                go_time = data_list[8]   # 出发时间
                 arrive_time = data_list[9]  # 到达时间
                 cost_time = data_list[10]  # 历时
                 special_class_seat = data_list[32] or '--'  # 商务/特等座
