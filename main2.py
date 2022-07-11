@@ -4,9 +4,38 @@ import urllib.parse
 
 import requests
 
+from selenium import webdriver
+from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.support.wait import WebDriverWait
 import aiohttp
 
 global browser, wait, tasks
+
+
+# 初始化
+def init():
+    option = Options()
+    option.add_argument('--disable-blink-features=AutomationControlled')
+    option.add_argument("--headless")
+    option.add_argument("--disbale-gpu")
+    # 定义为全局变量，方便其他模块使用
+    global browser, wait
+    # 实例化一个chrome浏览器
+    browser = webdriver.Chrome(options=option)
+    # 设置等待超时
+    wait = WebDriverWait(browser, 20)
+
+
+# 拿到的cookie只是一部分
+def get_part_cookie():
+    browser.get("https://kyfw.12306.cn/otn/leftTicket/init?linktypeid=dc")
+    c = browser.get_cookies()
+    cookies = ''
+    # 获取cookie中的name和value,转化成requests可以使用的形式
+    for cookie in c:
+        cookies += "{}={};".format(cookie['name'], cookie['value'])
+
+    return cookies
 
 
 def get_another_cookie(stationName, date, from_station, to_station):
@@ -44,7 +73,7 @@ def get_query_url(stationName, date, from_station, to_station):
     query_url = ("https://kyfw.12306.cn/otn/leftTicket/query?leftTicketDTO.train_date={}"
                  "&leftTicketDTO.from_station={}"
                  "&leftTicketDTO.to_station={}"
-                 "&purpose_codes=0X00"
+                 "&purpose_codes=ADULT"
                  ).format(date, from_station, to_station)
     return query_url
 
@@ -58,7 +87,7 @@ def escape(data):
 
 
 async def get_info_from_query_url(query_url, stationName, date, from_station, to_station):
-    cookie1 = "JSESSIONID=8E1758D7EC4330E6FE0A4F2A9BF39FBC; RAIL_EXPIRATION=1657682972442; RAIL_DEVICEID=e8EMu5K2CHTHt8PLHUia5L5Ibu_lWeVTFaIitxQ1UkZ4eDZgX81p0Li5JVD47mYGJVHxU69VVUz1TnLdd2pL3imK2IcLnGDrYpw02-Xjl_jrJaJ6sMqkg4Fp2EaearN9UgJbAWPH2ey1xUlH9qoJCNyafVPSOVIo; guidesStatus=off; highContrastMode=defaltMode; cursorStatus=off; BIGipServerpool_passport=199492106.50215.0000; route=c5c62a339e7744272a54643b3be5bf64; BIGipServerpassport=870842634.50215.0000; current_captcha_type=Z; fo=lychk6583r3ve8grL4FA6lRnmc8pYiQJMzoIogEpjAN+Wvf8KuYinWwvkuxL4RsfXlPqgmgO9tBrFErdJPOC9Cs6fybJyq58xTqFtFPdq4FBlLYXuWlpHqhAb5a8HF14gT9cv9l/VUxwkU8dH/32DQ9ngCzjAo/RBUAbfKByRlUVXbhfH2hZKbtse9c%3D; BIGipServerportal=2949906698.17695.0000;BIGipServerotn=1926824202.24610.0000"
+    cookie1 = get_part_cookie()
     cookie2 = get_another_cookie(stationName, date, from_station, to_station)
 
     headers = {
@@ -97,6 +126,7 @@ async def get_info_from_query_url(query_url, stationName, date, from_station, to
 async def main():
     # 初始化
     global tasks
+    init()
 
     stationName, stationCode = get_all_station_name_and_code()
     query_url = get_query_url(stationName, '2022-07-14', '上海', '北京')
