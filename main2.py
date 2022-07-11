@@ -131,6 +131,8 @@ async def main():
     stationName, stationCode = get_all_station_name_and_code()
     query_url = get_query_url(stationName, '2022-07-14', '上海', '北京')
     tasks = [asyncio.create_task(get_info_from_query_url(query_url, stationName, '2022-07-14', '上海', '北京'))]
+    # TODO：循环，自己改即可
+
     # for from_station in stationName:
     #     for to_station in stationName:
     #         if from_station != to_station:

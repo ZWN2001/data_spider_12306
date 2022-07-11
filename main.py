@@ -3,6 +3,7 @@ import re
 import urllib.parse
 import requests
 import aiohttp
+
 global browser, wait, tasks
 
 
@@ -54,6 +55,7 @@ def escape(data):
 
 
 async def get_info_from_query_url(query_url, stationName, date, from_station, to_station):
+    # TODO：建议换用自己的cookie，否则不保证cookie过期而导致的问题，或者使用main2.py,自动获取token
     cookie1 = "JSESSIONID=8E1758D7EC4330E6FE0A4F2A9BF39FBC; RAIL_EXPIRATION=1657682972442; RAIL_DEVICEID=e8EMu5K2CHTHt8PLHUia5L5Ibu_lWeVTFaIitxQ1UkZ4eDZgX81p0Li5JVD47mYGJVHxU69VVUz1TnLdd2pL3imK2IcLnGDrYpw02-Xjl_jrJaJ6sMqkg4Fp2EaearN9UgJbAWPH2ey1xUlH9qoJCNyafVPSOVIo; guidesStatus=off; highContrastMode=defaltMode; cursorStatus=off; BIGipServerpool_passport=199492106.50215.0000; route=c5c62a339e7744272a54643b3be5bf64; BIGipServerpassport=870842634.50215.0000; current_captcha_type=Z; fo=lychk6583r3ve8grL4FA6lRnmc8pYiQJMzoIogEpjAN+Wvf8KuYinWwvkuxL4RsfXlPqgmgO9tBrFErdJPOC9Cs6fybJyq58xTqFtFPdq4FBlLYXuWlpHqhAb5a8HF14gT9cv9l/VUxwkU8dH/32DQ9ngCzjAo/RBUAbfKByRlUVXbhfH2hZKbtse9c%3D; BIGipServerportal=2949906698.17695.0000;BIGipServerotn=1926824202.24610.0000"
     cookie2 = get_another_cookie(stationName, date, from_station, to_station)
     headers = {
@@ -96,6 +98,8 @@ async def main():
     stationName, stationCode = get_all_station_name_and_code()
     query_url = get_query_url(stationName, '2022-07-14', '上海', '北京')
     tasks = [asyncio.create_task(get_info_from_query_url(query_url, stationName, '2022-07-14', '上海', '北京'))]
+    # TODO：循环，自己改即可
+
     # for from_station in stationName:
     #     for to_station in stationName:
     #         if from_station != to_station:
