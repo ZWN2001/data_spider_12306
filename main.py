@@ -1,6 +1,8 @@
 import asyncio
 import re
+import datetime
 import urllib.parse
+from time import sleep
 
 import pymysql
 import requests
@@ -43,7 +45,7 @@ def write_all_station_name_and_code_to_db(stationName):
         sql = "INSERT INTO station VALUES (%s, %s, %s) "
         cursor.execute(sql, (stationName[sn], sn, city))
     try:
-        db.commit() # 所有sql一起提交以提高效率
+        db.commit()  # 所有sql一起提交以提高效率
     except:
         # 发生错误时回滚
         db.rollback()
@@ -74,7 +76,8 @@ def escape(data):
     return urllib.parse.quote(data.encode('unicode-escape'), safe='*@-_+./').replace('5Cu', '%u')
 
 
-async def get_info_from_query_url(query_url, stationName, date, from_station, to_station):
+async def get_info_from_query_url(query_url, stationName, date, from_station, to_station, catch, cursor):
+    sql = "INSERT INTO train_route VALUES (%s, %s, %s, %s) "
     # TODO：建议换用自己的cookie，否则不保证cookie过期而导致的问题，或者使用main2.py,自动获取token
     cookie1 = "JSESSIONID=6C15081C8C2298D4003F1A17806428A0; tk=E2zTT5p5Cfg7Uha0fWmX-sj1Ik4kYzsg27S1S0; guidesStatus=off; highContrastMode=defaltMode; cursorStatus=off; fo=lychk6583r3ve8grL4FA6lRnmc8pYiQJMzoIogEpjAN+Wvf8KuYinWwvkuxL4RsfXlPqgmgO9tBrFErdJPOC9Cs6fybJyq58xTqFtFPdq4FBlLYXuWlpHqhAb5a8HF14gT9cv9l/VUxwkU8dH/32DQ9ngCzjAo/RBUAbfKByRlUVXbhfH2hZKbtse9c%3D;  BIGipServerotn=1072693770.38945.0000; BIGipServerpool_passport=283378186.50215.0000; RAIL_EXPIRATION=1658141541162; RAIL_DEVICEID=imvIBxu2tpyGT6uOFVNQ_7V0aWLZNkjJ8p2mdZQkq2kkKhHCX7KQo4ZUuDP-j8lEMK754pWISeD6bLke46xY33I4M8KCSCOOmfwWy_-LGSQBHUeHMqXEHv_ZvZOiUm9vTh3Z30IcfAVChEVKm21F6_36N5HRFQna; route=9036359bb8a8a461c164a04f8f50b252; uKey=476a47c3fdd124b23cf1378176af7c94ebbe7823bd6897fded2e78a14b54bab3; current_captcha_type=Z;"
     cookie2 = get_another_cookie(stationName, date, from_station, to_station)
@@ -104,32 +107,48 @@ async def get_info_from_query_url(query_url, stationName, date, from_station, to
                 hard_sleep = data_list[28] or '--'  # 硬卧
                 hard_seat = data_list[29] or '--'  # 硬座
                 no_seat = data_list[26] or '--'  # 无座
-                # print(train_number, from_station_code, from_station_name, to_station_code, to_station_name, go_time,
-                #       arrive_time, cost_time, special_class_seat, first_class_seat, second_class_seat, soft_sleep,
-                #       hard_sleep, hard_seat, no_seat)
-    #             # TODO:写入数据库或文件
+                # TODO:写入数据库或文件
+                if train_number not in catch:  # 缓存以去重
+                    times = cost_time.split(":")
+                    time = int(times[0]) * 60 + int(times[1])
+                    cursor.execute(sql, (train_number, from_station_code, to_station_code, time))
+                    try:
+                        db.commit()
+                    except:
+                        # 发生错误时回滚
+                        db.rollback()
+                    catch.append(train_number)
+    sleep(3)
 
 
 # 主程序
 async def main():
     # 初始化
     global tasks
+    cursor = db.cursor()
+    tasks = []
 
     stationName, stationCode = get_all_station_name_and_code()
-    write_all_station_name_and_code_to_db(stationName)
-    query_url = get_query_url(stationName, '2022-07-21', '上海', '北京')
-    tasks = [asyncio.create_task(get_info_from_query_url(query_url, stationName, '2022-07-21', '上海', '北京'))]
-    # TODO：循环，自己改即可
-    #
-    # for from_station in stationName.keys():
-    #     for to_station in stationName.keys():
-    #         if from_station != to_station:
-    #             for i in range(1, 30):
-    #                 query_url = get_query_url(stationName, '2022-07-14', from_station, to_station)
-    #                 tasks = [asyncio.create_task(get_info_from_query_url(
-    #                     query_url, stationName, '2022-07-14', from_station, to_station))]
+    # write_all_station_name_and_code_to_db(stationName)
+    # catch = []
+    # date_object = datetime.date(2022, 8, 3)
+    # query_url = get_query_url(stationName, date_object, '天津', '北京')
+    # tasks = [asyncio.create_task(get_info_from_query_url(query_url, stationName, date_object, '天津', '北京', catch, cursor))]
+
+    # # TODO：循环，自己改即可
+    for from_station in stationName.keys():
+        for to_station in stationName.keys():
+            if from_station != to_station:
+                catch = []
+                for i in range(1, 3):
+                    date_object = datetime.date(2022, 8, i)
+                    query_url = get_query_url(stationName, date_object, from_station, to_station)
+                    tasks.append(asyncio.create_task(get_info_from_query_url(
+                        query_url, stationName, date_object, from_station, to_station, catch, cursor)))
 
     await asyncio.wait(tasks)
+    cursor.close()
+    db.close()
 
 
 # 程序入口
