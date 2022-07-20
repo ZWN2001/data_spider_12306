@@ -8,7 +8,7 @@ import pymysql
 import requests
 import aiohttp
 
-global browser, wait, tasks, db, detail_url, cursor, sql_get_code
+global browser, wait, tasks, db, detail_url, cursor, sql_get_code, client
 
 
 def init():
@@ -49,18 +49,18 @@ def get_all_station_name_and_code():
     return stationName, stationCode
 
 
-def write_all_station_name_and_code_to_db(stationName):
-    for sn in stationName.keys():
-        city = sn
-        if sn[-1:] in ("东", "西", "南", "北"):
-            city = sn[0:-1]
-        sql = "INSERT INTO station VALUES (%s, %s, %s) "
-        cursor.execute(sql, (stationName[sn], sn, city))
-    try:
-        db.commit()  # 所有sql一起提交以提高效率
-    except:
-        # 发生错误时回滚
-        db.rollback()
+# def write_all_station_name_and_code_to_db(stationName):
+#     for sn in stationName.keys():
+#         city = sn
+#         if sn[-1:] in ("东", "西", "南", "北"):
+#             city = sn[0:-1]
+#         sql = "INSERT INTO station VALUES (%s, %s, %s) "
+#         cursor.execute(sql, (stationName[sn], sn, city))
+#     try:
+#         db.commit()  # 所有sql一起提交以提高效率
+#     except:
+#         # 发生错误时回滚
+#         db.rollback()
 
 
 # 构建用于查询列车车次信息的url
@@ -98,86 +98,93 @@ def save_station_start_to_end(train_node, elapsed_time_minute):
     results = cursor.fetchall()
     end_station_code = results[0][0]
     start_time = train_node["start_time"]
-    cursor.execute(sql_insert_train_route, (train_route_id, start_station_code, end_station_code, start_time, elapsed_time_minute))
+    cursor.execute(sql_insert_train_route,
+                   (train_route_id, start_station_code, end_station_code, start_time, elapsed_time_minute))
 
 
 async def get_info_from_query_url(query_url, stationName, date, from_station, to_station, catch):
     sql_insert_train_route_atom = "INSERT INTO train_route_atom VALUES (%s, %s, %s, %s, %s) "
     # TODO：建议换用自己的cookie，否则不保证cookie过期而导致的问题，或者使用main2.py,自动获取token
-    cookie1 = "JSESSIONID=6C15081C8C2298D4003F1A17806428A0; tk=E2zTT5p5Cfg7Uha0fWmX-sj1Ik4kYzsg27S1S0; guidesStatus=off; highContrastMode=defaltMode; cursorStatus=off; fo=lychk6583r3ve8grL4FA6lRnmc8pYiQJMzoIogEpjAN+Wvf8KuYinWwvkuxL4RsfXlPqgmgO9tBrFErdJPOC9Cs6fybJyq58xTqFtFPdq4FBlLYXuWlpHqhAb5a8HF14gT9cv9l/VUxwkU8dH/32DQ9ngCzjAo/RBUAbfKByRlUVXbhfH2hZKbtse9c%3D;  BIGipServerotn=1072693770.38945.0000; BIGipServerpool_passport=283378186.50215.0000; RAIL_EXPIRATION=1658141541162; RAIL_DEVICEID=imvIBxu2tpyGT6uOFVNQ_7V0aWLZNkjJ8p2mdZQkq2kkKhHCX7KQo4ZUuDP-j8lEMK754pWISeD6bLke46xY33I4M8KCSCOOmfwWy_-LGSQBHUeHMqXEHv_ZvZOiUm9vTh3Z30IcfAVChEVKm21F6_36N5HRFQna; route=9036359bb8a8a461c164a04f8f50b252; uKey=476a47c3fdd124b23cf1378176af7c94ebbe7823bd6897fded2e78a14b54bab3; current_captcha_type=Z;"
+    cookie1 = "JSESSIONID=824E6B2E5616FB0D8F04EE0A68672401; tk=qVvmfB1mFvJdVLZ8S7XhJHwFvtZhLK9vxhS1S0; guidesStatus=off; RAIL_EXPIRATION=1658478690426; RAIL_DEVICEID=fMtfQqqXa7sE9TyPVsJKIcM2p4wt95NAP_p5yNbudyiVftKEuq7Ufg30PsHGn16Bo1we_DgYBp31_SC4gy-UeII-nQbHfRc_u78XgTD37j_SiINpRzkGbpyuZduEXnZ47W86o-sWhwJy8JpYfIyTuEXQvXLTXNES;  BIGipServerotn=938476042.24610.0000; highContrastMode=defaltMode; cursorStatus=off; BIGipServerpool_passport=233046538.50215.0000; route=c5c62a339e7744272a54643b3be5bf64; uKey=bcffa7070b0e61fc1719135aef7a60d454d3fbee33ec2870003ad8507f88c024; current_captcha_type=Z;"
     cookie2 = get_another_cookie(stationName, date, from_station, to_station)
     headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) "
                       "Chrome/61.0.3163.100 Safari/537.36",
         "Cookie": cookie1 + cookie2
     }
-    async with aiohttp.ClientSession() as session:
-        async with session.get(query_url, headers=headers) as resp:
-            info = await resp.json()  # 获取所有车次信息
-            all_trains = info['data']['result']  # 获取所有车次信息
-            for one_train in all_trains:  # 遍历取出每辆车的信息
-                data_list = one_train.split('|')
-                train_no = data_list[2]
-                train_number = data_list[3]  # 车次
+    # async with aiohttp.ClientSession() as session:
+    async with client.get(query_url, headers=headers) as resp:
+        info = await resp.json()  # 获取所有车次信息
+        all_trains = info['data']['result']  # 获取所有车次信息
+        for one_train in all_trains:  # 遍历取出每辆车的信息
+            data_list = one_train.split('|')
+            train_no = data_list[2]
+            train_number = data_list[3]  # 车次
 
-                if catch.get(train_number) is None:
-                    catch[train_number] = train_no
-                    params = {
-                        "leftTicketDTO.train_no": train_no,
-                        "leftTicketDTO.train_date": str(date),
-                        "rand_code": ""
-                    }
-                    async with session.get(detail_url, params=params) as resp_detail:
-                        node_info = await resp_detail.json()
-                        train_nodes = node_info['data']['data']
+            if train_number not in catch:
+                catch.append(train_number)
+                params = {
+                    "leftTicketDTO.train_no": train_no,
+                    "leftTicketDTO.train_date": str(date),
+                    "rand_code": ""
+                }
+                async with client.get(detail_url, params=params) as resp_detail:
+                    node_info = await resp_detail.json()
+                    train_nodes = node_info['data']['data']
 
-                        all_time = 0  # 总耗时
-                        for train_node in train_nodes:
-                            station_name = train_node["station_name"]
-                            cursor.execute(sql_get_code, station_name)
-                            results = cursor.fetchall()
-                            start_station_id = results[0][0]
-                            train_route_id = train_node["station_train_code"]
-                            station_no = train_node["station_no"]
-                            start_time = train_node["start_time"]
-                            times = train_node["running_time"].split(":")
-                            time = (int(times[0]) * 60 + int(times[1]))
-                            elapsed_time_minute = time
-                            cursor.execute(sql_insert_train_route_atom,
-                                           (train_route_id, start_station_id, station_no, start_time, elapsed_time_minute))
+                    all_time = 0  # 总耗时
+                    for train_node in train_nodes:
+                        station_name = train_node["station_name"]
+                        cursor.execute(sql_get_code, station_name)
+                        results = cursor.fetchall()
+                        start_station_id = results[0][0]
+                        train_route_id = train_node["station_train_code"]
+                        station_no = train_node["station_no"]
+                        start_time = train_node["start_time"]
+                        times = train_node["running_time"].split(":")
+                        time = (int(times[0]) * 60 + int(times[1]))
+                        elapsed_time_minute = time
+                        cursor.execute(sql_insert_train_route_atom, (train_route_id, start_station_id,
+                                                                     station_no, start_time, elapsed_time_minute))
+                        db.commit()
+                        all_time += time
 
-                            all_time += time
-
-                        save_station_start_to_end(train_nodes[0], all_time)
+                    save_station_start_to_end(train_nodes[0], all_time)
     sleep(3)
 
 
 # 主程序
 async def main():
-    global tasks
-
+    global tasks, client
+    client = aiohttp.ClientSession()
     stationName, stationCode = get_all_station_name_and_code()
     # write_all_station_name_and_code_to_db(stationName)
 
-    catch = {}
+    catch = []
     date_object = datetime.date(2022, 8, 3)
     query_url = get_query_url(stationName, date_object, '天津', '北京')
     tasks = [
-        asyncio.create_task(get_info_from_query_url(query_url, stationName, date_object, '天津', '北京', catch, ))]
+        asyncio.create_task(get_info_from_query_url(query_url, stationName, date_object, '天津', '北京', catch))]
 
+    # target_stations = ["北京", "上海", "天津", "重庆", "长沙", "长春", "成都",
+    #                    "福州", "广州", "贵阳", "呼和浩特", "哈尔滨", "合肥", "杭州",
+    #                    "海口", "济南", "昆明", "拉萨", "兰州", "南宁", "南京",
+    #                    "南昌", "沈阳", "石家庄", "太原", "乌鲁木齐", "武汉", "西宁",
+    #                    "西安", "银川", "郑州", "深圳", "厦门", "无锡", "苏州", "常州",
+    #                    "宁波", "南通", "青岛", "泉州", "佛山", "东莞", "惠州", "长治"]
     # # TODO：循环，自己改即可
-    # for from_station in stationName.keys():
-    #     for to_station in stationName.keys():
+    # for from_station in target_stations:
+    #     for to_station in target_stations:
     #         if from_station != to_station:
-    #             catch = {}
-    #             for i in range(1, 3):
+    #             catch = []
+    #             for i in range(1, 5):
     #                 date_object = datetime.date(2022, 8, i)
     #                 query_url = get_query_url(stationName, date_object, from_station, to_station)
     #                 tasks.append(asyncio.create_task(get_info_from_query_url(
-    #                     query_url, stationName, date_object, from_station, to_station, catch, cursor)))
+    #                     query_url, stationName, date_object, from_station, to_station, catch)))
 
     await asyncio.wait(tasks)
-    db.commit()
+    sleep(5)
     cursor.close()
     db.close()
 
@@ -188,3 +195,6 @@ if __name__ == '__main__':
 
     loop = asyncio.get_event_loop()
     loop.run_until_complete(main())
+    loop.run_until_complete(client.close())
+    loop.run_until_complete(asyncio.sleep(10))
+    loop.close()
