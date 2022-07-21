@@ -12,10 +12,10 @@ global browser, wait, tasks, db, cursor, sql_get_code, train_route_id
 def init():
     # 初始化
     global tasks, cursor, db, sql_get_code
-    db = pymysql.connect(host='localhost',
-                         user='root',
-                         password='123456',
-                         database='train_12306')
+    db = pymysql.connect(host='120.46.182.143',
+                         user='DB_USER128',
+                         password='DB_USER128@123',
+                         database='user128db')
     cursor = db.cursor()
     tasks = []
     sql_get_code = "SELECT station_id FROM station WHERE station_name = %s"
@@ -38,7 +38,7 @@ def get_another_cookie(stationName, date, from_station, to_station):
 
 def get_all_station_name_and_code():
     station_name_source = requests.get(
-        ' https://kyfw.12306.cn/otn/resources/js/framework/station_name.js?station_version=1.9235')
+        ' https://kyfw.12306.cn/otn/resources/js/framework/station_name.js?station_version=1.9236')
     pattern = r'([\u4e00-\u9fa5]+)\|([A-Z]+)'  # 正则匹配规则
     result = re.findall(pattern, station_name_source.text)
     stationName = dict(result)  # 所有车站信息，转换为字典
@@ -46,19 +46,19 @@ def get_all_station_name_and_code():
     return stationName, stationCode
 
 
-# def write_all_station_name_and_code_to_db(stationName):
-#     for sn in stationName.keys():
-#         city = sn
-#         # 通过站名获取城市名
-#         if sn[-1:] in ("东", "西", "南", "北"):
-#             city = sn[0:-1]
-#         sql = "INSERT INTO station VALUES (%s, %s, %s) "
-#         cursor.execute(sql, (stationName[sn], sn, city))
-#     try:
-#         db.commit()  # 所有sql一起提交以提高效率
-#     except:
-#         # 发生错误时回滚
-#         db.rollback()
+def write_all_station_name_and_code_to_db(stationName):
+    for sn in stationName.keys():
+        city = sn
+        # 通过站名获取城市名
+        if sn[-1:] in ("东", "西", "南", "北"):
+            city = sn[0:-1]
+        sql = "INSERT INTO station VALUES (%s, %s, %s) "
+        cursor.execute(sql, (stationName[sn], sn, city))
+    try:
+        db.commit()  # 所有sql一起提交以提高效率
+    except:
+        # 发生错误时回滚
+        db.rollback()
 
 
 # 构建用于查询列车车次信息的url
@@ -90,18 +90,28 @@ def save_station_start_to_end(train_node, train_route_id, elapsed_time_minute):
     end_station_name = train_node["end_station_name"]
     cursor.execute(sql_get_code, start_station_name)
     results = cursor.fetchall()
-    start_station_code = results[0][0]
+    if len(results) == 0:
+        start_station_code = "err"
+    else:
+        start_station_code = results[0][0]
+    # start_station_code = results[0][0]
     cursor.execute(sql_get_code, end_station_name)
     results = cursor.fetchall()
-    end_station_code = results[0][0]
+    if len(results) == 0:
+        end_station_code = "err"
+    else:
+        end_station_code = results[0][0]
     start_time = train_node["start_time"]
-    cursor.execute(sql_insert_train_route,
-                   (train_route_id, start_station_code, end_station_code, start_time, elapsed_time_minute))
+    try:
+        cursor.execute(sql_insert_train_route,
+                       (train_route_id, start_station_code, end_station_code, start_time, elapsed_time_minute))
+    except:
+        pass
 
 
 def get_info_from_query_url(query_url, stationName, date, from_station, to_station, catch):
     global train_route_id
-    sql_insert_train_route_atom = "INSERT INTO train_route_atom VALUES (%s, %s, %s, %s, %s, %s) "
+    sql_insert_train_route_atom = "INSERT INTO train_route_atom VALUES (%s, %s, %s, %s, %s, %s, %s) "
     # TODO：建议换用自己的cookie，否则不保证cookie过期而导致的问题，或者使用main2.py,自动获取token
     cookie1 = "JSESSIONID=824E6B2E5616FB0D8F04EE0A68672401; tk=qVvmfB1mFvJdVLZ8S7XhJHwFvtZhLK9vxhS1S0; " \
               "guidesStatus=off; RAIL_EXPIRATION=1658478690426; " \
@@ -147,21 +157,35 @@ def get_info_from_query_url(query_url, stationName, date, from_station, to_stati
                 station_name = train_node["station_name"]
                 cursor.execute(sql_get_code, station_name)
                 results = cursor.fetchall()
-                station_id = results[0][0]
+                if len(results) == 0:
+                    station_id = "err"
+                else:
+                    station_id = results[0][0]
                 train_route_id = train_number
                 station_no = train_node["station_no"]
                 arrive_time = train_node["arrive_time"]
                 start_time = train_node["start_time"]
+                if arrive_time == "----":
+                    arrive_time = start_time
+                if start_time == "----":
+                    start_time = arrive_time
                 stopover_time = train_node["stopover_time"]
+                if stopover_time == "----":
+                    stopover_time = "0分钟"
 
+                print((train_route_id, station_id, station_name, station_no, arrive_time, start_time,
+                       stopover_time[0:-2]))
                 try:
-                    cursor.execute(sql_insert_train_route_atom, (train_route_id, station_id, station_no, arrive_time,
-                                                                 start_time, stopover_time))
+                    cursor.execute(sql_insert_train_route_atom, (train_route_id, station_id, station_name, station_no,
+                                                                 arrive_time, start_time, stopover_time[0:-2]))
                 except:
                     pass
 
-            save_station_start_to_end(train_nodes[0], train_route_id, all_time)
+            if len(train_nodes) > 0:
+                save_station_start_to_end(train_nodes[0], train_route_id, all_time)
+
             db.commit()
+            resp.close()
 
 
 # 主程序
@@ -169,6 +193,7 @@ def main():
     global tasks
     stationName, stationCode = get_all_station_name_and_code()
     # write_all_station_name_and_code_to_db(stationName)
+    # print("done")
 
     date_object = datetime.date(2022, 8, 3)
     target_stations = ["天津", "北京", "上海", "重庆", "长沙", "长春", "成都",
@@ -176,16 +201,37 @@ def main():
                        "海口", "济南", "昆明", "兰州", "南宁", "南京",
                        "南昌", "沈阳", "石家庄", "太原", "武汉", "西宁",
                        "西安", "银川", "郑州", "深圳", "厦门", "无锡", "苏州", "常州",
-                       "宁波", "南通", "青岛", "泉州", "佛山", "东莞"]
+                       "宁波", "南通", "青岛"]
+    done_stations = ["天津"]
+
+    last_station = ""
+    last_down_station = []  # 一个简单的断点重传
     # target_stations = ["天津", "北京"]
-    catch = []
+    # done_stations = []
+    count = 0
     for from_station in target_stations:
-        for to_station in target_stations:
-            if from_station != to_station:
-                sleep(2)
-                print(from_station, to_station)
-                query_url = get_query_url(stationName, date_object, from_station, to_station)
-                get_info_from_query_url(query_url, stationName, date_object, from_station, to_station, catch)
+        if from_station in done_stations:
+            continue
+        if count % 4 == 3:
+            sleep(120)
+        count += 1
+
+        catch = []
+
+        if from_station == last_station:
+            for to_station in target_stations:
+                if from_station != to_station and to_station not in last_down_station:
+                    print(from_station, to_station)
+                    sleep(6)
+                    query_url = get_query_url(stationName, date_object, from_station, to_station)
+                    get_info_from_query_url(query_url, stationName, date_object, from_station, to_station, catch)
+        else:
+            for to_station in target_stations:
+                if from_station != to_station:
+                    print(from_station, to_station)
+                    sleep(6)
+                    query_url = get_query_url(stationName, date_object, from_station, to_station)
+                    get_info_from_query_url(query_url, stationName, date_object, from_station, to_station, catch)
 
     db.close()
 
