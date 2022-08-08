@@ -12,10 +12,14 @@ global browser, wait, tasks, db, cursor, sql_get_code, train_route_id
 def init():
     # 初始化
     global tasks, cursor, db, sql_get_code
-    db = pymysql.connect(host='120.46.182.143',
-                         user='DB_USER128',
-                         password='DB_USER128@123',
-                         database='user128db')
+    # db = pymysql.connect(host='120.46.182.143',
+    #                      user='DB_USER128',
+    #                      password='DB_USER128@123',
+    #                      database='user128db')
+    db = pymysql.connect(host='localhost',
+                         user='root',
+                         password='123456',
+                         database='train_12306')
     cursor = db.cursor()
     tasks = []
     sql_get_code = "SELECT station_id FROM station WHERE station_name = %s"
@@ -192,22 +196,22 @@ def get_info_from_query_url(query_url, stationName, date, from_station, to_stati
 def main():
     global tasks
     stationName, stationCode = get_all_station_name_and_code()
-    # write_all_station_name_and_code_to_db(stationName)
-    # print("done")
+    write_all_station_name_and_code_to_db(stationName)
+    print("done")
 
-    date_object = datetime.date(2022, 8, 3)
-    target_stations = ["天津", "北京", "上海", "重庆", "长沙", "长春", "成都",
-                       "福州", "广州", "贵阳", "呼和浩特", "哈尔滨", "合肥", "杭州",
-                       "海口", "济南", "昆明", "兰州", "南宁", "南京",
-                       "南昌", "沈阳", "石家庄", "太原", "武汉", "西宁",
-                       "西安", "银川", "郑州", "深圳", "厦门", "无锡", "苏州", "常州",
-                       "宁波", "南通", "青岛"]
-    done_stations = ["天津"]
-
+    date_object = datetime.date(2022, 8, 9)
+    # target_stations = ["天津", "北京", "上海", "重庆", "长沙", "长春", "成都",
+    #                    "福州", "广州", "贵阳", "呼和浩特", "哈尔滨", "合肥", "杭州",
+    #                    "海口", "济南", "昆明", "兰州", "南宁", "南京",
+    #                    "南昌", "沈阳", "石家庄", "太原", "武汉", "西宁",
+    #                    "西安", "银川", "郑州", "深圳", "厦门", "无锡", "苏州", "常州",
+    #                    "宁波", "南通", "青岛"]
+    # done_stations = ["天津"]
+    #
     last_station = ""
-    last_down_station = []  # 一个简单的断点重传
-    # target_stations = ["天津", "北京"]
-    # done_stations = []
+    last_done_station = []  # 一个简单的断点重传
+    target_stations = ["天津", "北京"]
+    done_stations = []
     count = 0
     for from_station in target_stations:
         if from_station in done_stations:
@@ -220,7 +224,7 @@ def main():
 
         if from_station == last_station:
             for to_station in target_stations:
-                if from_station != to_station and to_station not in last_down_station:
+                if from_station != to_station and to_station not in last_done_station:
                     print(from_station, to_station)
                     sleep(6)
                     query_url = get_query_url(stationName, date_object, from_station, to_station)
