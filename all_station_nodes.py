@@ -12,10 +12,7 @@ global browser, wait, tasks, db, cursor, sql_get_code, train_route_id
 def init():
     # 初始化
     global tasks, cursor, db, sql_get_code
-    # db = pymysql.connect(host='120.46.182.143',
-    #                      user='DB_USER128',
-    #                      password='DB_USER128@123',
-    #                      database='user128db')
+    # TODO：修改为你的数据库连接
     db = pymysql.connect(host='localhost',
                          user='root',
                          password='123456',
@@ -40,6 +37,7 @@ def get_another_cookie(stationName, date, from_station, to_station):
     return another_cookie
 
 
+# 获取所有车站的信息，包括站名与电报码
 def get_all_station_name_and_code():
     station_name_source = requests.get(
         ' https://kyfw.12306.cn/otn/resources/js/framework/station_name.js?station_version=1.9236')
@@ -53,7 +51,7 @@ def get_all_station_name_and_code():
 def write_all_station_name_and_code_to_db(stationName):
     for sn in stationName.keys():
         city = sn
-        # 通过站名获取城市名
+        # 通过站名获取城市名，逻辑有点过于粗暴，但是简单
         if sn[-1:] in ("东", "西", "南", "北"):
             city = sn[0:-1]
         sql = "INSERT INTO station VALUES (%s, %s, %s) "
@@ -79,6 +77,7 @@ def get_query_url(stationName, date, from_station, to_station):
     return query_url
 
 
+# 解码，有些汉字数据使用的是escape编码
 def escape(data):
     fill = re.findall(r'[\u4e00-\u9fa5]', data)
     if len(fill) > 0:
@@ -87,6 +86,7 @@ def escape(data):
     return urllib.parse.quote(data.encode('unicode-escape'), safe='*@-_+./').replace('5Cu', '%u')
 
 
+# 爬取车次
 def save_station_start_to_end(train_node, train_route_id, elapsed_time_minute):
     sql_insert_train_route = "INSERT INTO train_route VALUES (%s, %s, %s, %s, %s) "
 
@@ -113,6 +113,7 @@ def save_station_start_to_end(train_node, train_route_id, elapsed_time_minute):
         pass
 
 
+# 获取所有车次的原子区间
 def get_info_from_query_url(query_url, stationName, date, from_station, to_station, catch):
     global train_route_id
     sql_insert_train_route_atom = "INSERT INTO train_route_atom VALUES (%s, %s, %s, %s, %s, %s, %s) "
@@ -124,12 +125,15 @@ def get_info_from_query_url(query_url, stationName, date, from_station, to_stati
               "BIGipServerotn=938476042.24610.0000; highContrastMode=defaltMode; cursorStatus=off; " \
               "BIGipServerpool_passport=233046538.50215.0000; route=c5c62a339e7744272a54643b3be5bf64; " \
               "uKey=bcffa7070b0e61fc1719135aef7a60d454d3fbee33ec2870003ad8507f88c024; current_captcha_type=Z; "
+    # token是由两部分构成的，前一部分在有效期内是固定信息，后一部分则与请求的内容有关系
     cookie2 = get_another_cookie(stationName, date, from_station, to_station)
+    # 请求头
     headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) "
                       "Chrome/61.0.3163.100 Safari/537.36",
         "Cookie": cookie1 + cookie2
     }
+    # 用requests发起的请求，避免aiohttp过于频繁的请求而导致被ban
     resp = requests.get(query_url, headers=headers)
     info = resp.json()  # 获取所有车次信息
     all_trains = info['data']['result']  # 获取所有车次信息
@@ -141,9 +145,10 @@ def get_info_from_query_url(query_url, stationName, date, from_station, to_stati
         to_station_code = data_list[7]  # 到达站代号
         all_time = data_list[10]  # 总时间
 
+        # 过滤掉已经获取过的车次
         if train_number not in catch:
             catch.append(train_number)
-            print(train_number)
+            # 拼接请求的url
             detail_url = ("https://kyfw.12306.cn/otn/czxx/queryByTrainNo?"
                           "train_no={}"
                           "&from_station_telecode={}"
@@ -158,6 +163,7 @@ def get_info_from_query_url(query_url, stationName, date, from_station, to_stati
             times = all_time.split(":")
             all_time = int(times[0]) * 60 + int(times[1])  # 总耗时
             for train_node in train_nodes:
+                # 根据名字获取车站电报码
                 station_name = train_node["station_name"]
                 cursor.execute(sql_get_code, station_name)
                 results = cursor.fetchall()
@@ -165,6 +171,8 @@ def get_info_from_query_url(query_url, stationName, date, from_station, to_stati
                     station_id = "err"
                 else:
                     station_id = results[0][0]
+
+                # 获取其他信息
                 train_route_id = train_number
                 station_no = train_node["station_no"]
                 arrive_time = train_node["arrive_time"]
@@ -177,8 +185,9 @@ def get_info_from_query_url(query_url, stationName, date, from_station, to_stati
                 if stopover_time == "----":
                     stopover_time = "0分钟"
 
-                print((train_route_id, station_id, station_name, station_no, arrive_time, start_time,
-                       stopover_time[0:-2]))
+                # print((train_route_id, station_id, station_name, station_no, arrive_time, start_time,
+                #        stopover_time[0:-2]))
+                # 可能出现异常，有异常就不会去插入这条数据
                 try:
                     cursor.execute(sql_insert_train_route_atom, (train_route_id, station_id, station_name, station_no,
                                                                  arrive_time, start_time, stopover_time[0:-2]))
@@ -195,11 +204,13 @@ def get_info_from_query_url(query_url, stationName, date, from_station, to_stati
 # 主程序
 def main():
     global tasks
+    # 这一部分获取成功过就不要重复获取
     stationName, stationCode = get_all_station_name_and_code()
     write_all_station_name_and_code_to_db(stationName)
     print("done")
 
     date_object = datetime.date(2022, 8, 9)
+    # 目标：
     # target_stations = ["天津", "北京", "上海", "重庆", "长沙", "长春", "成都",
     #                    "福州", "广州", "贵阳", "呼和浩特", "哈尔滨", "合肥", "杭州",
     #                    "海口", "济南", "昆明", "兰州", "南宁", "南京",
@@ -217,22 +228,24 @@ def main():
         if from_station in done_stations:
             continue
         if count % 4 == 3:
+            # 避免请求过于频繁而被ban
             sleep(120)
         count += 1
 
         catch = []
 
+        # 一个断点重传，很简陋
         if from_station == last_station:
             for to_station in target_stations:
                 if from_station != to_station and to_station not in last_done_station:
-                    print(from_station, to_station)
+                    # print(from_station, to_station)
                     sleep(6)
                     query_url = get_query_url(stationName, date_object, from_station, to_station)
                     get_info_from_query_url(query_url, stationName, date_object, from_station, to_station, catch)
         else:
             for to_station in target_stations:
                 if from_station != to_station:
-                    print(from_station, to_station)
+                    # print(from_station, to_station)
                     sleep(6)
                     query_url = get_query_url(stationName, date_object, from_station, to_station)
                     get_info_from_query_url(query_url, stationName, date_object, from_station, to_station, catch)
